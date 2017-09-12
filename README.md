@@ -208,6 +208,9 @@ ZipOpen文件列表：<br>
 ZipOpen WebView：<br>
 ![](https://github.com/gara2014/ZipOpen/raw/master/pics/IMG_5181.PNG)
 
+## 使用到的第三方代码
+minizip
+
 ## 开发环境
 XCode 8.2
 
