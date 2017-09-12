@@ -199,13 +199,13 @@
 ```
 
 ## 截图
-第三方应用中：
+第三方应用中：<br>
 ![](https://github.com/gara2014/ZipOpen/raw/master/pics/IMG_5179.PNG)
 
-ZipOpen文件列表：
+ZipOpen文件列表：<br>
 ![](https://github.com/gara2014/ZipOpen/raw/master/pics/IMG_5180.PNG)
 
-ZipOpen WebView：
+ZipOpen WebView：<br>
 ![](https://github.com/gara2014/ZipOpen/raw/master/pics/IMG_5181.PNG)
 
 ## 开发环境
