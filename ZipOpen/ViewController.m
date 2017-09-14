@@ -8,10 +8,14 @@
 
 #import "ViewController.h"
 #import "WebViewController.h"
+#import "ZipArchive.h"
+#import "NSString+URL.h"
 
 @interface ViewController ()<UITableViewDelegate, UITableViewDataSource>
 
 @property (nonatomic, strong) NSMutableArray *dataSource;
+@property (nonatomic, strong) NSString *dstPath;
+@property (nonatomic, strong) NSString *srcPath;
 @end
 
 @implementation ViewController
@@ -26,7 +30,7 @@
     NSArray *array = [self getAllDirAndFile:path];
     [self.dataSource addObject:array];
     
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(contentsOfDirectionChanged:) name:@"contentsOfDirectionChanged" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(urlReceived:) name:@"urlReceived" object:nil];
 }
 
 - (IBAction)backAction:(id)sender {
@@ -50,7 +54,85 @@
     [self.tableView reloadData];
 }
 
-- (void)contentsOfDirectionChanged:(id)sender {
+- (void)urlReceived:(NSNotification *)aNotification {
+    NSURL *url = aNotification.object;
+    NSString *srcPath = [url absoluteString];
+    srcPath = [srcPath URLDecodedString];
+    if([srcPath rangeOfString:@"file://"].location != NSNotFound) {
+        srcPath = [srcPath substringFromIndex:7];
+    }
+    
+    NSString *fileNameStr = [srcPath lastPathComponent];
+    NSString *dstPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/localFile"];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:dstPath]) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:dstPath withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    dstPath = [dstPath stringByAppendingPathComponent:fileNameStr];
+    NSString *ext = [dstPath pathExtension];
+    if([ext isEqualToString:@"zip"]) {
+        BOOL success = [self unzipFile:srcPath dstPath:dstPath password:nil];
+        if (!success) {
+            self.srcPath = srcPath;
+            self.dstPath = dstPath;
+            [self showPwdAlertView];
+        }
+    } else {
+        NSData *data = [NSData dataWithContentsOfURL:url];
+        NSError *error = nil;
+        [data writeToFile:dstPath options:NSDataWritingAtomic error:&error];
+        NSLog(@"success:%@", error);
+        
+        [self contentsOfDirectionChanged];
+    }
+}
+
+- (BOOL)unzipFile:(NSString*)srcPath dstPath:(NSString*)dstPath password:(NSString*)password {
+    NSString *path = srcPath;
+    if (path.length > 0) {
+        ZipArchive* zip = [[ZipArchive alloc] init];
+        zip.stringEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+        BOOL suc = [zip UnzipOpenFile:path Password:password];
+        if (suc) {
+            NSString *outputDir = [dstPath stringByDeletingPathExtension];
+            if (outputDir.length > 0) {
+                NSString *outputDirTemp = [outputDir stringByAppendingString:@"_temp"];
+                if([zip UnzipFileTo:outputDirTemp overWrite:YES]) {
+                    
+                    if ([[NSFileManager defaultManager] fileExistsAtPath:outputDir]) {
+                        [[NSFileManager defaultManager] removeItemAtPath:outputDir error:nil];
+                    }
+                    suc = [[NSFileManager defaultManager] moveItemAtPath:outputDirTemp toPath:outputDir error:nil];
+                    
+                    [self contentsOfDirectionChanged];
+                }
+                else {
+                    //打开失败，删掉缓存文件
+                    [[NSFileManager defaultManager] removeItemAtPath:outputDirTemp error:nil];
+                    return NO;
+                }
+            }
+        }
+        else {
+            return NO;
+        }
+    }
+    
+    return YES;
+}
+
+- (void)showPwdAlertView {
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"请输入口令" message:@"" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定",nil];
+    [alert setAlertViewStyle:UIAlertViewStylePlainTextInput];
+    [alert show];
+}
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
+{
+    UITextField *txt = [alertView textFieldAtIndex:0];
+    [self unzipFile:self.srcPath dstPath:self.dstPath password:txt.text];
+}
+
+- (void)contentsOfDirectionChanged {
     if(self.dataSource.count == 1) {
         [self.dataSource removeAllObjects];
         NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/localFile"];
